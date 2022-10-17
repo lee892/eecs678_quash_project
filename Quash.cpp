@@ -5,18 +5,28 @@ Quash::Quash() {
 
 }
 
+void echo() {
 
-string Quash::take_input() {
-    string input;
-    cin >> input;
+}
+
+void Quash::setup() {
+
+    //commands["echo"] = echo;
+}
+
+std::string Quash::take_input() {
+    std::string input;
+    std::cin >> input;
+
     return input;
 }
 
+
 void Quash::run() {
-    string input;
+    std::string input;
     while (input != "exit") {
         std::cout << "[Quash]$ ";
         input = take_input();
     }
-
+    std::cout << getenv("PATH");
 }

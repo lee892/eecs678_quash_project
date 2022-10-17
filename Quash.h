@@ -1,20 +1,22 @@
 #ifndef QUASH
 
 #include <queue>
+#include <string>
 #include <unordered_map>
 #include <iostream>
-using namespace std;
+#include <stdlib.h>
 
 class Quash {
     private:
-    queue<string> input;
-    //unordered_map commands;
+    std::queue<std::string> input;
+    std::unordered_map<std::string, std::string> commands;
 
     public:
     Quash();
     //~Quash();
     void run();
-    string take_input();
+    std::string take_input();
+    void setup();
     
 };
 
