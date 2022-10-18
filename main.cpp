@@ -20,7 +20,7 @@ fork - pipes
 getenv - env var
 getwd (get_current_dir_name) - call relative path executables
 kill - kill
-open - ?
+open - io
 pipe - pipes
 printf - echo
 setenv - setting env var
