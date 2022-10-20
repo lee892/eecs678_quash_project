@@ -41,10 +41,10 @@ vector<string> parse_input(string input, string delimiter) {
     while ((pos = input.find(delimiter)) != string::npos) {
         token = input.substr(0, pos);
         token = trim_string(token);
-        cout << token << "\n";
         parsed.push_back(token);
         input.erase(0, pos + delimiter.length());
     }
+    input = trim_string(input);
     parsed.push_back(input);
     return parsed;
 }
@@ -99,7 +99,6 @@ void Quash::pipe_commands(string input) {
         }
         return;
     }
-
     //Piping multiple processes
     pid_t pids[numCommands];
     int pipes[numCommands-1][2];
@@ -120,13 +119,14 @@ void Quash::pipe_commands(string input) {
                 //From stdout to pipes
                 dup2(pipes[i][1], STDOUT_FILENO);
             }
-            
             //Close other pipes
             close_pipes(pipes, numCommands-1, i);
 
             //Split string on " ", call exec
-            cout << commands[i] << "\n";
             vector<string> p = parse_input(commands[i], " ");
+            for (int j = 0; j < p.size(); j++) {
+                cout << p[i] << " ";
+            }
             const char* command = p[0].c_str();
             char** params = strings_to_chars(p);
             
