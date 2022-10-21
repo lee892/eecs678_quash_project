@@ -50,7 +50,10 @@ vector<string> parse_input(string input, string delimiter) {
 }
 
 string parse_comment(string input) {
-
+    string res;
+    size_t pos = input.find("#");
+    res = input.substr(0, pos);
+    return res;
 }
 
 char** strings_to_chars(vector<string> strs) {
@@ -156,7 +159,8 @@ void Quash::run() {
     while (input != "exit" && input != "quit") {
         cout << "[Quash]$ ";
         input = take_input();
-
+        input = parse_comment(input);
+        if (input.length() == 0) continue;
         pipe_commands(input);
         
     }
