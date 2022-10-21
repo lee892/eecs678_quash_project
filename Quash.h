@@ -25,8 +25,8 @@ class Quash {
     Quash();
     //~Quash();
     void run();
-    void pipe_commands(string input);
-    void io_redirects();
+    void pipeCommands(string input);
+    void redirectIO();
     void setup();
 };
 
