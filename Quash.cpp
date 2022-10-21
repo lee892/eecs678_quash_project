@@ -78,17 +78,6 @@ void closePipes(int pipes[][2], int numPipes, int pipe) {
     }
 }
 
-// includes command in parameters
-void executeCommands(string command, vector<string> parameters) {
-    if (command == "echo") {
-        std::cout << command.substr(4) << "\n";
-    } else {
-        const char* charCommand = parameters[0].c_str();
-        char** params = stringsToChars(parameters);
-        execvp(charCommand, params);
-    }
-}
-
 void Quash::pipeCommands(string input) {
     commands = parseInput(input, "|");
     int numCommands = commands.size();
@@ -165,13 +154,14 @@ void Quash::redirectIO() {
 
 }
 
-
-
 void Quash::run() {
     string input;
     while (input != "exit" && input != "quit") {
         cout << "[Quash]$ ";
-        input = takeInput();
-        pipeCommands(input);
+        input = take_input();
+        input = parse_comment(input);
+        if (input.length() == 0) continue;
+        pipe_commands(input);
+        
     }
 }
