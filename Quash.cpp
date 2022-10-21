@@ -79,9 +79,9 @@ void closePipes(int pipes[][2], int numPipes, int pipe) {
 }
 
 // includes command in parameters
-void executeCommands(string command, vector<string> parameters) {
+void executeCommands(string command, vector<string> parameters, string stringParameter) {
     if (command == "echo") {
-        std::cout << command.substr(4) << "\n";
+        std::cout << stringParameter.substr(4) << "\n";
     } else {
         const char* charCommand = parameters[0].c_str();
         char** params = stringsToChars(parameters);
@@ -104,7 +104,7 @@ void Quash::pipeCommands(string input) {
             const char* command = p[0].c_str();
             char** params = stringsToChars(p);
 
-            execvp(command, params);
+            executeCommands(p[0], p, commands[0]);
             //Delete params
             for (int i = 0; i < p.size(); i++) {
                 delete params[i];
