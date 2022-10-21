@@ -16,7 +16,7 @@ void Quash::setup() {
 }
 
 
-string Quash::take_input() {
+string take_input() {
     string input;
     getline(cin, input);
 
@@ -47,6 +47,10 @@ vector<string> parse_input(string input, string delimiter) {
     input = trim_string(input);
     parsed.push_back(input);
     return parsed;
+}
+
+string parse_comment(string input) {
+
 }
 
 char** strings_to_chars(vector<string> strs) {
@@ -115,7 +119,7 @@ void Quash::pipe_commands(string input) {
                 //From pipes to stdin
                 dup2(pipes[i-1][0], STDIN_FILENO);
             }
-            if (i < commands.size()) {
+            if (i < numCommands-1) {
                 //From stdout to pipes
                 dup2(pipes[i][1], STDOUT_FILENO);
             }
@@ -124,9 +128,6 @@ void Quash::pipe_commands(string input) {
 
             //Split string on " ", call exec
             vector<string> p = parse_input(commands[i], " ");
-            for (int j = 0; j < p.size(); j++) {
-                cout << p[i] << " ";
-            }
             const char* command = p[0].c_str();
             char** params = strings_to_chars(p);
             
@@ -138,6 +139,7 @@ void Quash::pipe_commands(string input) {
             delete params;
             exit(0);
         }
+        
     }
     close_pipes(pipes, numCommands-1, -1);
     for (int i = 0; i < numCommands; i++) {
