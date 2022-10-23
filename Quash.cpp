@@ -1,5 +1,12 @@
 #include "Quash.h"
 
+struct Process {
+    char delimiter;
+    string command;
+    vector<string> params;
+    bool builtIn;
+}
+
 
 Quash::Quash() {
     //char* arg_list[] = {"ls",  NULL};
@@ -78,8 +85,6 @@ void closePipes(int pipes[][2], int numPipes, int pipe) {
     }
 }
 
-<<<<<<< HEAD
-=======
 // includes command in parameters
 void executeCommands(string command, vector<string> parameters, string stringParameter) {
     if (command == "echo") {
@@ -91,7 +96,6 @@ void executeCommands(string command, vector<string> parameters, string stringPar
     }
 }
 
->>>>>>> fbb9ae6596d42943a5eb380ee5df860f9e1119c7
 void Quash::pipeCommands(string input) {
     commands = parseInput(input, "|");
     int numCommands = commands.size();
