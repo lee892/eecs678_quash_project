@@ -5,7 +5,7 @@ struct Process {
     string command;
     vector<string> params;
     bool builtIn;
-}
+};
 
 
 Quash::Quash() {
@@ -30,14 +30,61 @@ string takeInput() {
     return input;
 }
 
-string trimString(string str) {
+void parseComment(string &input) {
+    size_t pos = input.find("#");
+    input = input.substr(0, pos);
+}
+
+void trimString(string &str) {
     while (isspace(str.at(0))) {
         str = str.substr(1);
     }
     while (isspace(str.at(str.size()-1))) {
         str = str.substr(0, str.size()-1);
     }
-    return str;
+}
+
+bool parseAmpersand(string &input) {
+    size_t pos = input.find("&");
+    if (pos != string::npos) {
+        input = input.substr(0, pos);
+        return true;
+    }
+    return false;
+}
+
+void parseEnv(string &input) {
+    /*size_t start;
+    string temp = input;
+    int prev = 0;
+    while ((start = temp.find("$")) != string::npos) {
+        int end = start;
+        while (temp[end] >= 'A' && temp[end] <= 'Z') {
+            end++;
+        }
+        int i = start + prev;
+        int j = end + prev;
+        string varStr = input.substr(i, j)
+        string env = getenv(varStr.substr(1));
+        input.replace(i, j, )
+        prev = start;
+    }*/
+    size_t start = input.find("$");
+    int end = start + 1;
+    while (input[end] >= 'A' && input[end] <= 'Z') {
+        end++;
+    }
+    const char* varStr = input.substr(start+1, end).c_str();
+    string env = getenv(varStr);
+    input.replace(start, end, env);
+}
+
+void clean(string &input, bool &isBackground) {
+    trimString(input);
+    parseComment(input);
+    parseEnv(input);
+    isBackground = parseAmpersand(input);
+
 }
 
 vector<string> parseInput(string input, string delimiter) {
@@ -47,20 +94,13 @@ vector<string> parseInput(string input, string delimiter) {
 
     while ((pos = input.find(delimiter)) != string::npos) {
         token = input.substr(0, pos);
-        token = trimString(token);
+        trimString(token);
         parsed.push_back(token);
         input.erase(0, pos + delimiter.length());
     }
-    input = trimString(input);
+    trimString(input);
     parsed.push_back(input);
     return parsed;
-}
-
-string parse_comment(string input) {
-    string res;
-    size_t pos = input.find("#");
-    res = input.substr(0, pos);
-    return res;
 }
 
 char** stringsToChars(vector<string> strs) {
@@ -86,7 +126,7 @@ void closePipes(int pipes[][2], int numPipes, int pipe) {
 }
 
 // includes command in parameters
-void executeCommands(string command, vector<string> parameters, string stringParameter) {
+void executeCommand(string command, vector<string> parameters, string stringParameter) {
     if (command == "echo") {
         std::cout << stringParameter.substr(4) << "\n";
     } else {
@@ -111,7 +151,7 @@ void Quash::pipeCommands(string input) {
             const char* command = p[0].c_str();
             char** params = stringsToChars(p);
 
-            executeCommands(p[0], p, commands[0]);
+            executeCommand(p[0], p, commands[0]);
             //Delete params
             for (int i = 0; i < p.size(); i++) {
                 delete params[i];
@@ -176,10 +216,11 @@ void Quash::run() {
     string input;
     while (input != "exit" && input != "quit") {
         cout << "[Quash]$ ";
-        input = take_input();
-        input = parse_comment(input);
+        input = takeInput();
+        bool isBackground = false;
+        clean(input, isBackground);
         if (input.length() == 0) continue;
-        pipe_commands(input);
+        pipeCommands(input);
         
     }
 }
