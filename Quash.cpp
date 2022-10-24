@@ -1,27 +1,10 @@
 #include "Quash.h"
 
-struct Process {
-    char delimiter;
-    string command;
-    vector<string> params;
-    bool builtIn;
-};
-
 
 Quash::Quash() {
     //char* arg_list[] = {"ls",  NULL};
     //execvp("ls", arg_list);
 }
-
-void echo() {
-
-}
-
-void Quash::setup() {
-    
-
-}
-
 
 string takeInput() {
     string input;
@@ -70,6 +53,8 @@ void parseEnv(string &input) {
         prev = start;
     }*/
     size_t start = input.find("$");
+    if (start == string::npos) return;
+
     int end = start + 1;
     while (input[end] >= 'A' && input[end] <= 'Z') {
         end++;
@@ -83,23 +68,71 @@ void clean(string &input, bool &isBackground) {
     trimString(input);
     parseComment(input);
     parseEnv(input);
+    
     isBackground = parseAmpersand(input);
 
 }
 
-vector<string> parseInput(string input, string delimiter) {
-    size_t pos = 0;
+size_t* findNextDelimiter(string input, vector<string> delimiters) {
+    size_t* res = new size_t[2];
+    res[0] = string::npos;
+    res[1] = 0;
+
+    size_t nextPos;
+    int n = delimiters.size();
+    for (int i = 1; i < n; i++) {
+        nextPos = input.find(delimiters[i]);
+        if (nextPos != string::npos && nextPos < res[0]) {
+            res[0] = nextPos;
+            res[1] = i;
+        }
+    }
+    return res;
+}
+
+vector<string> parseParams(string input, string delimiter) {
+    size_t pos;
     string token;
     vector<string> parsed;
 
     while ((pos = input.find(delimiter)) != string::npos) {
         token = input.substr(0, pos);
-        trimString(token);
         parsed.push_back(token);
         input.erase(0, pos + delimiter.length());
+
     }
-    trimString(input);
     parsed.push_back(input);
+    return parsed;
+}
+
+vector<Process> parseInput(string input, vector<string> delimiters) {
+    size_t* pos;
+    int index;
+    string token;
+    vector<Process> parsed;
+
+    while (!input.empty()) {
+        pos = findNextDelimiter(input, delimiters);
+        
+        index = (pos[0] == string::npos) ? input.length() : pos[0];
+        token = (pos[0] == string::npos) ? input : input.substr(0, index);
+
+        trimString(token);
+        //Separate by spaces
+        vector<string> params = parseParams(token, " ");
+        //The delimiter found
+        string delimiter = delimiters[pos[1]];
+        //Create Process struct
+        Process currProcess;
+        currProcess.delimiter = delimiter;
+        currProcess.keyWord = params[0];
+        currProcess.params = params;
+
+        parsed.push_back(currProcess);
+        input.erase(0, index + delimiter.length());
+        delete[] pos;
+    }
+
     return parsed;
 }
 
@@ -125,43 +158,41 @@ void closePipes(int pipes[][2], int numPipes, int pipe) {
     }
 }
 
-// includes command in parameters
-void executeCommand(string command, vector<string> parameters, string stringParameter) {
-    if (command == "echo") {
-        std::cout << stringParameter.substr(4) << "\n";
+void Quash::executeCommand(Process process) {
+    if (builtIns.find(process.keyWord) != builtIns.end()) {
+        cout << "Running built in " << process.keyWord << "\n";
     } else {
-        const char* charCommand = parameters[0].c_str();
-        char** params = stringsToChars(parameters);
+        //Separate command and params
+        const char* charCommand = process.keyWord.c_str();
+        char** params = stringsToChars(process.params);
+
+        //Call exec
         execvp(charCommand, params);
+
+        //Delete params
+        for (int i = 0; i < process.params.size(); i++) {
+            delete params[i];
+        }
+        delete[] params;
     }
 }
 
-void Quash::pipeCommands(string input) {
-    commands = parseInput(input, "|");
+void Quash::executeCommands() {
     int numCommands = commands.size();
     int status;
+
     //If only one command
     if (numCommands == 1) {
         pid_t pid = fork();
 
         if (pid == 0) {
-            //Split string on " "
-            vector<string> p = parseInput(commands[0], " ");
-            //Separate command and params
-            const char* command = p[0].c_str();
-            char** params = stringsToChars(p);
-
-            executeCommand(p[0], p, commands[0]);
-            //Delete params
-            for (int i = 0; i < p.size(); i++) {
-                delete params[i];
-            }
-            delete params;
+            executeCommand(commands[0]);
             exit(0);
-        } else {
-            //Parent process wait
-            waitpid(pid, &status, 0);
         }
+
+        //Parent process wait
+        waitpid(pid, &status, 0);
+
         return;
     }
     //Piping multiple processes
@@ -187,17 +218,8 @@ void Quash::pipeCommands(string input) {
             //Close other pipes
             closePipes(pipes, numCommands-1, i);
 
-            //Split string on " ", call exec
-            vector<string> p = parseInput(commands[i], " ");
-            const char* command = p[0].c_str();
-            char** params = stringsToChars(p);
-            
-            execvp(command, params);
-            //Delete params
-            for (int i = 0; i < p.size(); i++) {
-                delete params[i];
-            }
-            delete params;
+            //Execute
+            executeCommand(commands[i]);
             exit(0);
         }
         
@@ -217,10 +239,36 @@ void Quash::run() {
     while (input != "exit" && input != "quit") {
         cout << "[Quash]$ ";
         input = takeInput();
+        //Save original input
+        string fullInput = input;
+
+        //Clean for &, $, and #
         bool isBackground = false;
         clean(input, isBackground);
         if (input.length() == 0) continue;
-        pipeCommands(input);
-        
+
+        //Divide input to commands
+        vector<string> delimiters {"", "|", "<", ">", ">>"};
+        commands = parseInput(input, delimiters);
+
+        //Create process for job
+        pid_t pid = fork();
+        if (isBackground) {
+            //Add to background jobs
+            Job childProcess;
+            childProcess.pid = pid;
+            childProcess.fullCommand = fullInput;
+            backgroundJobs.push_back(childProcess);
+        }
+        if (pid == 0) {
+            //In child process
+            executeCommands();
+            if (isBackground) {
+                //call atexit();
+            }
+            exit(0);
+        }
+        int status;
+        waitpid(pid, &status, 0);
     }
 }
