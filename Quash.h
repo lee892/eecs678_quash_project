@@ -22,6 +22,7 @@ using namespace std;
 struct Process {
     string delimiter;
     string keyWord;
+    string original;
     vector<string> params;
     bool builtIn;
 };

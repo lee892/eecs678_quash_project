@@ -126,6 +126,7 @@ vector<Process> parseInput(string input, vector<string> delimiters) {
         currProcess.delimiter = delimiter;
         currProcess.keyWord = params[0];
         currProcess.params = params;
+        currProcess.original = token;
 
         parsed.push_back(currProcess);
         input.erase(0, index + delimiter.length());
