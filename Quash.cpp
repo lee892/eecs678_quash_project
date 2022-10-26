@@ -1,6 +1,5 @@
 #include "Quash.h"
 
-
 Quash::Quash() {
     //char* arg_list[] = {"ls",  NULL};
     //execvp("ls", arg_list);
@@ -165,6 +164,37 @@ void Quash::executeCommand(Process process) {
             string s;
             for (const auto &piece : process.params) s += piece;
             cout << s.substr(4) << "\n";
+        }
+        if (process.keyWord == "pwd") {
+            char path[256];
+            memset(path, 0, sizeof(path));
+            if (getcwd(path, sizeof(path)) == NULL) {
+                perror("getcwd");
+                abort();
+            }
+            string s;
+            for (const auto &piece : path) s += piece;
+            cout << s << "\n";
+        }
+        if (process.keyWord == "cd") {
+            string s = "Users/Ahmni";
+            string key = "PWD";
+            chdir(s.c_str());
+            setenv(key.c_str(), s.c_str(), 1);
+            cout << s << "\n";
+        }
+        if (process.keyWord == "export") {
+            // parse string from dollar sign to = to get env variable
+            // setenv(env_var, value, 1);
+        }
+        if (process.keyWord == "exit" || process.keyWord == "quit") {
+            exit(NULL);
+        }
+        if (process.keyWord == "kill") {
+            // kill(pid_t, int sig)
+            int sig = stoi(process.params[1]);
+            pid_t pid = stoi(process.params[2]);
+            kill(pid, sig);
         }
     } else {
         //Separate command and params
