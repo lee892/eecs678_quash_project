@@ -161,13 +161,16 @@ void closePipes(int pipes[][2], int numPipes, int pipe) {
 void Quash::executeCommand(Process process) {
     if (builtIns.find(process.keyWord) != builtIns.end()) {
         cout << "Running built in " << process.keyWord << "\n";
+        if (process.keyWord  == "echo") {
+            string s;
+            for (const auto &piece : process.params) s += piece;
+            cout << s.substr(4) << "\n";
+        }
     } else {
         //Separate command and params
         const char* charCommand = process.keyWord.c_str();
         char** params = stringsToChars(process.params);
-
-        //Call exec
-        execvp(charCommand, params);
+            execvp(charCommand, params);
 
         //Delete params
         for (int i = 0; i < process.params.size(); i++) {
