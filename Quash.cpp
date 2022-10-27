@@ -208,7 +208,7 @@ void Quash::executeCommands() {
         pid_t pid = fork();
 
         if (pid == 0) {
-            executeCommand(commands[0])
+            executeCommand(commands[0]);
             exit(0);
         }
 
