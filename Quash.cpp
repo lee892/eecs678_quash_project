@@ -175,6 +175,12 @@ bool Quash::executeCommand(Process process) {
             for (const auto &piece : path) s += piece;
             cout << s << "\n";
         }
+        if (process.keyWord == "jobs") {
+            for (int i = 0; i < backgroundJobs.size(); i++){
+                printf("[%d]    %d     ", i, backgroundJobs[i].pid);
+                cout << backgroundJobs[i].fullCommand << "\n";
+            }
+        }
         if (process.keyWord == "exit" || process.keyWord == "quit") {
             exit(0);
         }
@@ -276,22 +282,25 @@ void Quash::run() {
 
         //Create process for job
         pid_t pid = fork();
-        if (isBackground) {
-            //Add to background jobs
-            Job childProcess;
-            childProcess.pid = pid;
-            childProcess.fullCommand = fullInput;
-            backgroundJobs.push_back(childProcess);
-        }
         if (pid == 0) {
             //In child process
             executeCommands();
             if (isBackground) {
-                //call atexit();
-            }
-            exit(0);
+            } 
+            exit(0); // must do something here
         } else {
             // In parent process
+            if (isBackground) {
+                //Add to background jobs
+                Job childProcess;
+                childProcess.pid = pid;
+                childProcess.fullCommand = fullInput;
+                cout << "pushing background process\n";
+                backgroundJobs.push_back(childProcess);
+                int idx = backgroundJobs.size() - 1;
+                printf("Background job started: [%d]    %d     ", idx, backgroundJobs[idx].pid);
+                cout << backgroundJobs[idx].fullCommand << "\n";
+            }
             if (commands[0].keyWord == "cd") {
                 // if empty, go home
                 string path;
@@ -317,5 +326,16 @@ void Quash::run() {
         }
         int status;
         waitpid(pid, &status, 0);
+        handleAtExit(pid);
     }
+}
+
+void Quash::handleAtExit(pid_t pid) {
+    cout << "exiting\n";
+    auto iter = std::find_if(backgroundJobs.begin(), backgroundJobs.end(),
+                             [&](const Job& job){return job.pid == pid;});
+
+    // if found, erase it
+    if ( iter != backgroundJobs.end())
+       backgroundJobs.erase(iter);
 }
