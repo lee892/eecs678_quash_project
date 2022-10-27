@@ -44,7 +44,7 @@ class Quash {
     //~Quash();
     void run();
     bool executeCommand(Process process);
-    void executeCommands(int (&child_pipes)[2]);
+    void executeCommands();
     void redirectIO();
 };
 
