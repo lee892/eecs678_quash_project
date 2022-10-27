@@ -158,13 +158,11 @@ void closePipes(int pipes[][2], int numPipes, int pipe) {
     }
 }
 
-void Quash::executeCommand(Process process) {
+bool Quash::executeCommand(Process process) {
     if (builtIns.find(process.keyWord) != builtIns.end()) {
         cout << "Running built in " << process.keyWord << "\n";
         if (process.keyWord  == "echo") {
-            string s;
-            for (const auto &piece : process.params) s += piece;
-            cout << s.substr(4) << "\n";
+            cout << process.original.substr(5) << "\n";
         }
         if (process.keyWord == "pwd") {
             char path[256];
@@ -177,19 +175,8 @@ void Quash::executeCommand(Process process) {
             for (const auto &piece : path) s += piece;
             cout << s << "\n";
         }
-        if (process.keyWord == "cd") {
-            string s = "Users/Ahmni";
-            string key = "PWD";
-            chdir(s.c_str());
-            setenv(key.c_str(), s.c_str(), 1);
-            cout << s << "\n";
-        }
-        if (process.keyWord == "export") {
-            // parse string from dollar sign to = to get env variable
-            // setenv(env_var, value, 1);
-        }
         if (process.keyWord == "exit" || process.keyWord == "quit") {
-            exit(NULL);
+            exit(0);
         }
         if (process.keyWord == "kill") {
             // kill(pid_t, int sig)
@@ -197,6 +184,7 @@ void Quash::executeCommand(Process process) {
             pid_t pid = stoi(process.params[2]);
             kill(pid, sig);
         }
+        return true;
     } else {
         //Separate command and params
         const char* charCommand = process.keyWord.c_str();
@@ -208,19 +196,37 @@ void Quash::executeCommand(Process process) {
             delete params[i];
         }
         delete[] params;
+        return false;
     }
 }
 
-void Quash::executeCommands() {
+void Quash::executeCommands(int (&child_pipes)[2]) {
     int numCommands = commands.size();
     int status;
-
     //If only one command
     if (numCommands == 1) {
         pid_t pid = fork();
 
         if (pid == 0) {
-            executeCommand(commands[0]);
+            if (executeCommand(commands[0])) {
+                //helper
+                close(child_pipes[0]);
+                string path;
+                if (commands[0].keyWord == "cd") {
+                    if(commands[0].original.size() > 3) {
+                        path = commands[0].original.substr(3);
+                    } else {
+                        string home = "HOME";
+                        path = getenv(home.c_str());
+                    }
+                    string key = "PWD";
+                    // chdir(s.c_str());
+                    // setenv(key.c_str(), s.c_str(), 1);
+                    // cout << s << "\n";
+                }
+                write(child_pipes[1], path.c_str(), path.size()+1);
+                close(child_pipes[1]);
+            }
             exit(0);
         }
 
@@ -232,6 +238,7 @@ void Quash::executeCommands() {
     //Piping multiple processes
     pid_t pids[numCommands];
     int pipes[numCommands-1][2];
+
 
     for (int i = 0; i < numCommands-1; i++) {
         pipe(pipes[i]);
@@ -254,7 +261,18 @@ void Quash::executeCommands() {
 
             //Execute
             executeCommand(commands[i]);
+            
             exit(0);
+        } else {
+            close(child_pipes[1]);
+            char fromChild[100];
+            int n = read(child_pipes[0], fromChild, sizeof(fromChild)-1);
+            fromChild[n] = '\0';
+            close(child_pipes[0]);
+            cout << "in parent" << "\n";
+            if (fromChild[0]) {
+                // cout << fromChild[0] << "HELLO! \n";
+            }
         }
         
     }
@@ -263,7 +281,6 @@ void Quash::executeCommands() {
         waitpid(pids[i], &status, 0);
     }
 }
-
 void Quash::redirectIO() {
 
 }
@@ -284,7 +301,9 @@ void Quash::run() {
         //Divide input to commands
         vector<string> delimiters {"", "|", "<", ">", ">>"};
         commands = parseInput(input, delimiters);
-
+        //create pipe
+        int child_pipes[2];
+        pipe(child_pipes);
         //Create process for job
         pid_t pid = fork();
         if (isBackground) {
@@ -296,11 +315,36 @@ void Quash::run() {
         }
         if (pid == 0) {
             //In child process
-            executeCommands();
+            executeCommands(child_pipes);
             if (isBackground) {
                 //call atexit();
             }
             exit(0);
+        } else {
+            // In parent process
+            if (commands[0].keyWord == "cd") {
+                wait(NULL); // maybe not needed
+                string key = "PWD";
+                close(child_pipes[1]);
+                char fromChild[100];
+                int n = read(child_pipes[0], fromChild, sizeof(fromChild)-1);
+                fromChild[n] = '\0';
+                close(child_pipes[0]);
+                if (fromChild[0]) {
+                    string str(fromChild);
+                    chdir(str.c_str());
+                    setenv(key.c_str(), str.c_str(), 1);
+                    
+                    char s[100];
+                }
+            }
+            if (commands[0].keyWord == "export") {
+                string param = commands[0].original;
+                int idx = param.find("=");
+                string key = param.substr(7, idx-7);
+                string val = param.substr(idx+1);
+                setenv(key.c_str(), val.c_str(), 1);
+            }
         }
         int status;
         waitpid(pid, &status, 0);

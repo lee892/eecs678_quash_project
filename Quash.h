@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <errno.h>
 
 //#include <boost/algorithm/string.hpp>
 
@@ -42,8 +43,8 @@ class Quash {
     Quash();
     //~Quash();
     void run();
-    void executeCommand(Process process);
-    void executeCommands();
+    bool executeCommand(Process process);
+    void executeCommands(int (&child_pipes)[2]);
     void redirectIO();
 };
 
