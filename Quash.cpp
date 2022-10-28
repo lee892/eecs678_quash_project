@@ -30,6 +30,7 @@ bool parseAmpersand(string &input) {
     size_t pos = input.find("&");
     if (pos != string::npos) {
         input = input.substr(0, pos);
+        trimString(input);
         return true;
     }
     return false;
@@ -63,9 +64,10 @@ void parseEnv(string &input) {
     input.replace(start, end, env);
 }
 
-void clean(string &input, bool &isBackground) {
+void clean(string &input, string &fullInput, bool &isBackground) {
     trimString(input);
     parseComment(input);
+    fullInput = input;
     parseEnv(input);
     
     isBackground = parseAmpersand(input);
@@ -161,7 +163,10 @@ void closePipes(int pipes[][2], int numPipes, int pipe) {
 bool Quash::executeCommand(Process process) {
     if (builtIns.find(process.keyWord) != builtIns.end()) {
         if (process.keyWord  == "echo") {
-            cout << process.original.substr(5) << "\n";
+            string s = process.original.substr(5);
+            s.erase(remove( s.begin(), s.end(), '\"' ), s.end());
+            s.erase(remove( s.begin(), s.end(), '\'' ), s.end());
+            cout << s << "\n";
         }
         if (process.keyWord == "pwd") {
             char path[256];
@@ -190,7 +195,7 @@ bool Quash::executeCommand(Process process) {
             kill(pid, sig);
         }
         return true;
-    } else if (access(process.keyWord.c_str(), F_OK) != -1) {
+    } else if (access(process.keyWord.c_str(), F_OK) != -1 && access(process.keyWord.c_str(), X_OK) == -1) {
         char* params[] = {"cat", NULL};
         execvp("cat", params);
         
@@ -285,17 +290,33 @@ void Quash::redirectIO() {
 
 }
 
+// void handle_sigchld(int sig) {
+//   int saved_errno = errno;
+//   while (waitpid((pid_t)(-1), 0, WNOHANG) > 0) {}
+//   errno = saved_errno;
+//   cout << getpid() << "\n";
+// }
+
 void Quash::run() {
+    // struct sigaction sa;
+    // sa.sa_handler = &handle_sigchld;
+    // sigemptyset(&sa.sa_mask);
+    // sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
+    // if (sigaction(SIGCHLD, &sa, 0) == -1) {
+    //     perror(0);
+    //     exit(1);
+    // }
     string input;
     while (input != "exit" && input != "quit") {
         cout << "[Quash]$ ";
         input = takeInput();
+        if (input.empty()) continue;
         //Save original input
         string fullInput = input;
 
         //Clean for &, $, and #
         bool isBackground = false;
-        clean(input, isBackground);
+        clean(input, fullInput, isBackground);
         if (input.length() == 0) continue;
 
         //Divide input to commands
@@ -317,7 +338,6 @@ void Quash::run() {
                 Job childProcess;
                 childProcess.pid = pid;
                 childProcess.fullCommand = fullInput;
-                cout << "pushing background process\n";
                 backgroundJobs.push_back(childProcess);
                 int idx = backgroundJobs.size() - 1;
                 printf("Background job started: [%d]    %d     ", idx, backgroundJobs[idx].pid);
@@ -327,7 +347,7 @@ void Quash::run() {
                 // if empty, go home
                 string path;
                 if(commands[0].original.size() > 3) {
-                        path = commands[0].original.substr(3);
+                    path = commands[0].original.substr(3);
                 } else {
                     string home = "HOME";
                     string str(getenv(home.c_str()));
@@ -345,10 +365,6 @@ void Quash::run() {
                 string val = param.substr(idx+1);
                 setenv(key.c_str(), val.c_str(), 1);
             }
-            string key = "PWD";
-            // set working directory and $PWD
-            chdir(path.c_str());
-            setenv(key.c_str(), path.c_str(), 1);
         }
         if (commands[0].keyWord == "export") {
             string param = commands[0].original;
@@ -358,18 +374,24 @@ void Quash::run() {
             setenv(key.c_str(), val.c_str(), 1);
         }
 
-        int status;
-        waitpid(pid, &status, 0);
+        if(!isBackground) {
+            int status;
+            waitpid(pid, &status, 0);
+        }
         for (int i = 0; i < backgroundJobs.size(); i++) {
-            if (kill(backgroundJobs[i].pid, 0) == -1) {
-                handleAtExit(backgroundJobs[i].pid);
+            pid_t childPid = backgroundJobs[i].pid;
+            if (waitpid(childPid, 0, WNOHANG) == childPid) {
+                handleAtExit(backgroundJobs[i].pid, i);
             }
         }
     }
 }
 
-void Quash::handleAtExit(pid_t pid) {
-    cout << "exiting\n";
+void Quash::handleAtExit(pid_t pid, int idx) {
+    cout << "Completed: ";
+    printf("[%d]    %d     ", idx, backgroundJobs[idx].pid);
+    cout << backgroundJobs[idx].fullCommand << "\n";
+
     auto iter = std::find_if(backgroundJobs.begin(), backgroundJobs.end(),
                              [&](const Job& job){return job.pid == pid;});
 

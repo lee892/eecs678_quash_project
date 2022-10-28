@@ -82,13 +82,13 @@ int main() {
 
     vector<Process> processes = parseInput(input, delimiters);
     
-    /*for (int i = 0; i < processes.size(); i++) {
+    for (int i = 0; i < processes.size(); i++) {
         for (int j = 0; j < processes[i].params.size(); j++) {
             cout << processes[i].params[j] << " ";
         }
 
         cout << processes[i].delimiter << " " << processes[i].builtIn << "\n";
-    }*/
+    }
 
     
 
