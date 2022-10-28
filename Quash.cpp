@@ -140,8 +140,9 @@ vector<Process> parseInput(string input, vector<string> delimiters) {
 }
 
 char** stringsToChars(vector<string> strs) {
+    int strsSize = strs.size();
     char** chars = new char*[strs.size() + 1];
-    for (int i = 0; i < strs.size(); i++) {
+    for (int i = 0; i < strsSize; i++) {
         chars[i] = new char[strs[i].length()+1];
         strcpy(chars[i], strs[i].c_str());
     }
@@ -166,6 +167,7 @@ bool Quash::executeCommand(Process process) {
     if (builtIns.find(process.keyWord) != builtIns.end()) {
         if (process.keyWord  == "echo") {
             string s = process.original.substr(5);
+            trimString(s);
             s.erase(remove( s.begin(), s.end(), '\"' ), s.end());
             s.erase(remove( s.begin(), s.end(), '\'' ), s.end());
             cout << s << "\n";
@@ -182,7 +184,8 @@ bool Quash::executeCommand(Process process) {
             cout << s << "\n";
         }
         if (process.keyWord == "jobs") {
-            for (int i = 0; i < backgroundJobs.size(); i++){
+            int numBackgroundJobs = backgroundJobs.size();
+            for (int i = 0; i < numBackgroundJobs; i++){
                 printf("[%d]    %d     ", i, backgroundJobs[i].pid);
                 cout << backgroundJobs[i].fullCommand << "\n";
             }
@@ -198,7 +201,9 @@ bool Quash::executeCommand(Process process) {
         }
         return true;
     } else if (access(process.keyWord.c_str(), F_OK) != -1 && access(process.keyWord.c_str(), X_OK) == -1) {
-        char* params[] = {"cat", NULL};
+        char catCommand[] = "cat";
+        char* params[] = {catCommand, NULL};
+        
         execvp("cat", params);
         
         return false;
@@ -257,11 +262,11 @@ void Quash::executeCommands() {
                 dup2(pipes[i][1], STDOUT_FILENO);
 
             } else if (commands[i].delimiter == ">") {
-                int fileDes = open(commands[i+1].keyWord.c_str(), O_WRONLY);
+                int fileDes = open(commands[i+1].keyWord.c_str(), O_WRONLY | O_CREAT, 0644);
                 dup2(pipes[i-1][0], STDIN_FILENO);
                 dup2(fileDes, STDOUT_FILENO);
             } else if (commands[i].delimiter == ">>") {
-                int fileDes = open(commands[i+1].keyWord.c_str(), O_WRONLY | O_APPEND);
+                int fileDes = open(commands[i+1].keyWord.c_str(), O_WRONLY | O_APPEND | O_CREAT, 0644);
                 dup2(pipes[i-1][0], STDIN_FILENO);
                 dup2(fileDes, STDOUT_FILENO);
             } else {
@@ -383,7 +388,8 @@ void Quash::run() {
             int status;
             waitpid(pid, &status, 0);
         }
-        for (int i = 0; i < backgroundJobs.size(); i++) {
+        int numBackgroundJobs = backgroundJobs.size();
+        for (int i = 0; i < numBackgroundJobs; i++) {
             pid_t childPid = backgroundJobs[i].pid;
             if (waitpid(childPid, 0, WNOHANG) == childPid) {
                 handleAtExit(backgroundJobs[i].pid, i);
