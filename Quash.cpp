@@ -360,7 +360,17 @@ void Quash::run() {
                 string key = "PWD";
                 // set working directory and $PWD
                 chdir(path.c_str());
-                setenv(key.c_str(), path.c_str(), 1);
+                if (path == "..") {
+                    char newPath[256];
+                    memset(newPath, 0, sizeof(newPath));
+                    if (getcwd(newPath, sizeof(newPath)) == NULL) {
+                        perror("getcwd");
+                        abort();
+                    }
+                    setenv(key.c_str(), newPath, 1);
+                } else {
+                    setenv(key.c_str(), path.c_str(), 1);
+                }
             }
             if (commands[0].keyWord == "export") {
                 string param = commands[0].original;
