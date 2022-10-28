@@ -139,11 +139,12 @@ vector<Process> parseInput(string input, vector<string> delimiters) {
 }
 
 char** stringsToChars(vector<string> strs) {
-    char** chars = new char*[strs.size()];
+    char** chars = new char*[strs.size() + 1];
     for (int i = 0; i < strs.size(); i++) {
         chars[i] = new char[strs[i].length()+1];
         strcpy(chars[i], strs[i].c_str());
     }
+    chars[strs.size()+1] = NULL;
     return chars;
 }
 
@@ -203,14 +204,17 @@ bool Quash::executeCommand(Process process) {
     } else {
         //Separate command and params
         const char* charCommand = process.keyWord.c_str();
-        char** params = stringsToChars(process.params);
-            execvp(charCommand, params);
-
-        //Delete params
-        for (int i = 0; i < process.params.size(); i++) {
-            delete params[i];
-        }
-        delete[] params;
+        std::vector<char*> charParam;
+        // const_cast is needed because execvp prototype wants an
+        // array of char*, not const char*.
+        for (auto const& a : process.params)
+            charParam.emplace_back(const_cast<char*>(a.c_str()));
+        // NULL terminate
+        charParam.push_back(nullptr);
+        // The first argument to execvp should be the same as the
+        // first element in charParam, but we'll assume the caller knew
+        // what they were doing, and that program is a std::string. 
+        execvp(charCommand, charParam.data());
         return false;
     }
 }
