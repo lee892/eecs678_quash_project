@@ -59,9 +59,10 @@ void parseEnv(string &input) {
     while (input[end] >= 'A' && input[end] <= 'Z') {
         end++;
     }
-    const char* varStr = input.substr(start+1, end).c_str();
+    string envVar = input.substr(start+1, end-start-1);
+    const char* varStr = envVar.c_str();
     string env = getenv(varStr);
-    input.replace(start, end, env);
+    input.replace(start, end-start, env);
 }
 
 void clean(string &input, string &fullInput, bool &isBackground) {
