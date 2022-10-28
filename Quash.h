@@ -15,6 +15,7 @@
 #include <sys/wait.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <algorithm>
 
 //#include <boost/algorithm/string.hpp>
 
@@ -39,7 +40,7 @@ class Quash {
     vector<Process> commands;
     vector<Job> backgroundJobs;
     unordered_set<string> builtIns {"echo", "export", "cd", "pwd", "jobs", "kill"};
-
+    void handleAtExit(pid_t pid);
     public:
     Quash();
     //~Quash();
