@@ -326,7 +326,11 @@ void Quash::run() {
         }
         int status;
         waitpid(pid, &status, 0);
-        handleAtExit(pid);
+        for (int i = 0; i < backgroundJobs.size(); i++) {
+            if (kill(backgroundJobs[i].pid, 0) == -1) {
+                handleAtExit(backgroundJobs[i].pid);
+            }
+        }
     }
 }
 
