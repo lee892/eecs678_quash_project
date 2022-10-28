@@ -89,7 +89,7 @@ size_t* findNextDelimiter(string input, vector<string> delimiters) {
     return res;
 }
 
-vector<string> parseParams(string input, string delimiter) {
+vector<string> parseSingleDelim(string input, string delimiter) {
     size_t pos;
     string token;
     vector<string> parsed;
@@ -118,7 +118,7 @@ vector<Process> parseInput(string input, vector<string> delimiters) {
 
         trimString(token);
         //Separate by spaces
-        vector<string> params = parseParams(token, " ");
+        vector<string> params = parseSingleDelim(token, " ");
         //The delimiter found
         string delimiter = delimiters[pos[1]];
         //Create Process struct
@@ -160,7 +160,6 @@ void closePipes(int pipes[][2], int numPipes, int pipe) {
 
 bool Quash::executeCommand(Process process) {
     if (builtIns.find(process.keyWord) != builtIns.end()) {
-        cout << "Running built in " << process.keyWord << "\n";
         if (process.keyWord  == "echo") {
             cout << process.original.substr(5) << "\n";
         }
@@ -185,6 +184,11 @@ bool Quash::executeCommand(Process process) {
             kill(pid, sig);
         }
         return true;
+    } else if (access(process.keyWord.c_str(), F_OK) != -1) {
+        char* params[] = {"cat", NULL};
+        execvp("cat", params);
+        
+        return false;
     } else {
         //Separate command and params
         const char* charCommand = process.keyWord.c_str();
@@ -228,16 +232,33 @@ void Quash::executeCommands() {
 
     for (int i = 0; i < numCommands; i++) {
         pids[i] = fork();
+
         if (pids[i] == 0) {
             //Redirect IO
-            if (i > 0) {
-                //From pipes to stdin
-                dup2(pipes[i-1][0], STDIN_FILENO);
-            }
-            if (i < numCommands-1) {
-                //From stdout to pipes
+            if (commands[i].delimiter == "<") {
+                int fileDes = open(commands[i+1].keyWord.c_str(), O_RDONLY);
+                dup2(fileDes, STDIN_FILENO);
                 dup2(pipes[i][1], STDOUT_FILENO);
+
+            } else if (commands[i].delimiter == ">") {
+                int fileDes = open(commands[i+1].keyWord.c_str(), O_WRONLY);
+                dup2(pipes[i-1][0], STDIN_FILENO);
+                dup2(fileDes, STDOUT_FILENO);
+            } else if (commands[i].delimiter == ">>") {
+                int fileDes = open(commands[i+1].keyWord.c_str(), O_WRONLY | O_APPEND);
+                dup2(pipes[i-1][0], STDIN_FILENO);
+                dup2(fileDes, STDOUT_FILENO);
+            } else {
+                if (i > 0) {
+                    //From pipes to stdin
+                    dup2(pipes[i-1][0], STDIN_FILENO);
+                }
+                if (i < numCommands-1) {
+                    //From stdout to pipes
+                    dup2(pipes[i][1], STDOUT_FILENO);
+                }
             }
+            
             //Close other pipes
             closePipes(pipes, numCommands-1, i);
 
@@ -253,6 +274,7 @@ void Quash::executeCommands() {
         waitpid(pids[i], &status, 0);
     }
 }
+
 void Quash::redirectIO() {
 
 }
@@ -271,7 +293,7 @@ void Quash::run() {
         if (input.length() == 0) continue;
 
         //Divide input to commands
-        vector<string> delimiters {"", "|", "<", ">", ">>"};
+        vector<string> delimiters {"", "|", ">>", ">", "<"};
         commands = parseInput(input, delimiters);
 
         //Create process for job
@@ -290,31 +312,31 @@ void Quash::run() {
                 //call atexit();
             }
             exit(0);
-        } else {
-            // In parent process
-            if (commands[0].keyWord == "cd") {
-                // if empty, go home
-                string path;
-                if(commands[0].original.size() > 3) {
-                        path = commands[0].original.substr(3);
-                } else {
-                    string home = "HOME";
-                    string str(getenv(home.c_str()));
-                    path = str;
-                }
-                string key = "PWD";
-                // set working directory and $PWD
-                chdir(path.c_str());
-                setenv(key.c_str(), path.c_str(), 1);
-            }
-            if (commands[0].keyWord == "export") {
-                string param = commands[0].original;
-                int idx = param.find("=");
-                string key = param.substr(7, idx-7);
-                string val = param.substr(idx+1);
-                setenv(key.c_str(), val.c_str(), 1);
-            }
         }
+        // In parent process
+        if (commands[0].keyWord == "cd") {
+            // if empty, go home
+            string path;
+            if(commands[0].original.size() > 3) {
+                    path = commands[0].original.substr(3);
+            } else {
+                string home = "HOME";
+                string str(getenv(home.c_str()));
+                path = str;
+            }
+            string key = "PWD";
+            // set working directory and $PWD
+            chdir(path.c_str());
+            setenv(key.c_str(), path.c_str(), 1);
+        }
+        if (commands[0].keyWord == "export") {
+            string param = commands[0].original;
+            int idx = param.find("=");
+            string key = param.substr(7, idx-7);
+            string val = param.substr(idx+1);
+            setenv(key.c_str(), val.c_str(), 1);
+        }
+
         int status;
         waitpid(pid, &status, 0);
     }
